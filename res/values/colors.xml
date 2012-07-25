@@ -16,12 +16,17 @@
 -->
 <resources>
     <color name="title_background">#ff5e5e5e</color>
-    <color name="window_background">#ffe8e8e8</color>
-    <color name="title_split_background">#ff919191</color>
+    <color name="title_text">#ffffffff</color>
+    <color name="title_separator">#40ffffff</color>
+    
+    <color name="pinned_header_background">#ffcccccc</color>
     
     <color name="dim_foreground_light">#323232</color>
 
     <color name="console_background">#222222</color>
+    <color name="console_grey">#eeeeec</color>
+    <color name="console_red">#ef2929</color>
+    <color name="console_green">#8ae234</color>
     
     <color name="pager_header_background_color">#ff919191</color>
     <color name="pager_header_active_text_color">#ffa4c639</color>

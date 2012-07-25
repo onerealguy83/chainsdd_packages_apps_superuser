@@ -22,16 +22,14 @@ public class SlidingPanel extends ViewGroup {
     private View mAnchor;
     private int mContentId;
     private View mContent;
-
+    
     private int mOpenOverlap;
     private int mClosedLimit;
-
+    
     private boolean mAnimating = false;
     private int mFillOffset = 0;
-
+    
     private boolean mExpanded = true;
-
-    private Toggler mToggler;
 
     public SlidingPanel(Context context, AttributeSet attrs) {
         this(context, attrs, 0);
@@ -47,29 +45,27 @@ public class SlidingPanel extends ViewGroup {
             throw new IllegalArgumentException("The button attribute is required and must refer" +
                     " to a valid child");
         }
-
+        
         int anchorId = a.getResourceId(R.styleable.SlidingPanel_anchor, 0);
         if (anchorId == buttonId) {
             throw new IllegalArgumentException("The anchor attribute is required and must refer" +
                     " to a different child");
         }
-
+        
         int contentId = a.getResourceId(R.styleable.SlidingPanel_content, 0);
         if (contentId == anchorId || contentId == buttonId) {
             throw new IllegalArgumentException("The content attribute is required and must refer" +
                     " to a different child");
         }
-
+        
         mOpenOverlap = a.getDimensionPixelSize(R.styleable.SlidingPanel_openOverlap, 0);
         mClosedLimit = a.getDimensionPixelSize(R.styleable.SlidingPanel_closedLimit, 0);
-
+        
         a.recycle();
-
+        
         mButtonId = buttonId;
         mAnchorId = anchorId;
         mContentId = contentId;
-
-        mToggler = new Toggler();
     }
 
     @Override
@@ -103,7 +99,7 @@ public class SlidingPanel extends ViewGroup {
         measureChild(button, MeasureSpec.makeMeasureSpec(anchor.getMeasuredWidth(),
                 MeasureSpec.EXACTLY),
                 heightMeasureSpec);
-        button.setOnClickListener(mToggler);
+        button.setOnClickListener(new Toggler());
         
         final View content = mContent;
         int contentWidth = width - mClosedLimit;
@@ -166,6 +162,7 @@ public class SlidingPanel extends ViewGroup {
                 toggle();
             }
         }
+        
     }
     
     private class AnimationFiller implements AnimationListener {

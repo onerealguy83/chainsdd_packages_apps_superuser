@@ -2,7 +2,6 @@ package com.noshufou.android.su;
 
 import java.io.IOException;
 
-import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.PendingIntent;
 import android.content.Intent;
@@ -22,7 +21,6 @@ import android.view.Gravity;
 import android.widget.TextView;
 import android.widget.Toast;
 
-@TargetApi(10)
 public class TagWriterActivity extends Activity {
     private static final String TAG = "Su.TagWriterActivity";
     

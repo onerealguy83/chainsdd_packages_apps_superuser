@@ -1,65 +1,56 @@
 package com.noshufou.android.su;
 
-import java.util.ArrayList;
+import com.noshufou.android.su.preferences.Preferences;
+import com.noshufou.android.su.provider.PermissionsProvider.Logs;
+import com.noshufou.android.su.util.Util;
+import com.noshufou.android.su.widget.ChangeLog;
+import com.noshufou.android.su.widget.PagerHeader;
 
-import android.app.AlertDialog;
 import android.content.ComponentName;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.drawable.Drawable;
 import android.graphics.drawable.TransitionDrawable;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.os.SystemProperties;
 import android.preference.PreferenceManager;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentPagerAdapter;
 import android.support.v4.app.FragmentTransaction;
+import android.support.v4.view.MenuCompat;
 import android.support.v4.view.ViewPager;
-import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
 import android.widget.AbsListView;
+import android.widget.ImageView;
 
-import com.actionbarsherlock.app.SherlockFragmentActivity;
-import com.actionbarsherlock.view.Menu;
-import com.actionbarsherlock.view.MenuItem;
-import com.actionbarsherlock.view.Window;
-import com.noshufou.android.su.preferences.Preferences;
-import com.noshufou.android.su.util.Util;
-import com.noshufou.android.su.util.Util.MenuId;
-import com.noshufou.android.su.widget.ChangeLog;
-import com.noshufou.android.su.widget.PagerHeader;
+import java.util.ArrayList;
 
-public class HomeActivity extends SherlockFragmentActivity implements DialogInterface.OnClickListener {
-    private static final String TAG = "Su.HomeActivity";
+public class HomeActivity extends FragmentActivity {
+//    private static final String TAG = "Su.HomeActivity";
+
+    private static final int MENU_ELITE = 0;
+    private static final int MENU_GET_ELITE = 1;
+    private static final int MENU_CLEAR_LOG = 2;
+    private static final int MENU_PREFERENCES = 3;
 
     private static final String STATE_SHOW_DETAILS = "show_details";
 
     public boolean mDualPane = false;
     private boolean mLoggingEnabled = true;
-    private boolean mElite = false;
-    
-    private MenuItem mTempUnrootItem = null;
-    private MenuItem mOtaSurviveItem = null;
 
     private ViewPager mPager;
-    
-    private static final String CM_VERSION = SystemProperties.get("ro.cm.version", "");
-    private static final String ROOT_ACCESS_PROPERTY = "persist.sys.root_access";
+    private TransitionDrawable mTitleLogo;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Log.d(TAG, "onCreate()");
 
-        requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
         setContentView(R.layout.activity_home);
-        setSupportProgressBarIndeterminateVisibility(false);
-        Log.d(TAG, "after setContentView()");
 
         SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
         mLoggingEnabled = prefs.getBoolean(Preferences.LOGGING, true);
@@ -72,7 +63,12 @@ public class HomeActivity extends SherlockFragmentActivity implements DialogInte
                 if (mLoggingEnabled) {
                     showLog();
                 } else {
-                    showInfo();
+                    Fragment detailsFragment =
+                            Fragment.instantiate(this, AppDetailsFragment.class.getName());
+                    FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+                    transaction.setTransition(FragmentTransaction.TRANSIT_FRAGMENT_FADE);
+                    transaction.replace(R.id.fragment_container, detailsFragment);
+                    transaction.commit();
                 }
             }
         } else {
@@ -82,58 +78,58 @@ public class HomeActivity extends SherlockFragmentActivity implements DialogInte
             PagerHeader pagerHeader = (PagerHeader) findViewById(R.id.pager_header);
             PagerAdapter pagerAdapter = new PagerAdapter(this, mPager, pagerHeader);
 
-            pagerAdapter.addPage(InfoFragment.class, R.string.page_label_info);
             pagerAdapter.addPage(AppListFragment.class, R.string.page_label_apps);
             if (mLoggingEnabled) {
                 pagerAdapter.addPage(LogFragment.class, R.string.page_label_log);
+            } else {
+                pagerHeader.setVisibility(View.GONE);
+
             }
-            mPager.setCurrentItem(1);
+
+            // DEBUG
+//            pagerAdapter.addPage(AppListFragment.class, null, "APPS");
+//            pagerAdapter.addPage(LogFragment.class, null, "LOGS");
+//            pagerAdapter.addPage(AppListFragment.class, null, "more apps");
+//            pagerAdapter.addPage(LogFragment.class, null, "more logs");
+            // END DEBUG
         }
 
+        mTitleLogo = 
+                (TransitionDrawable) ((ImageView)findViewById(android.R.id.home)).getDrawable();
         new EliteCheck().execute();
 
         ChangeLog cl = new ChangeLog(this);
         if (cl.firstRun()) {
             cl.getLogDialog().show();
         }
-        
-        // Check for root enabled on CyanogenMod 9
-        if (CM_VERSION.length() > 0) {
-            String root = SystemProperties.get(ROOT_ACCESS_PROPERTY, "1");
-            // 0: off, 1: apps, 2:adb, 3:both
-            if ("0".equals(root) || "2".equals(root)) {
-                new AlertDialog.Builder(this).setMessage(R.string.root_disabled_summary)
-                        .setTitle(R.string.root_disabled_title)
-                        .setIcon(android.R.drawable.ic_dialog_alert)
-                        .setPositiveButton(android.R.string.yes, this)
-                        .setNegativeButton(android.R.string.no, this)
-                        .show();
-            }
-        }
-    }
-
-    @Override
-    public void onClick(DialogInterface dialog, int which) {
-        if (which == DialogInterface.BUTTON_POSITIVE) {
-            Intent settings = new Intent("android.settings.APPLICATION_DEVELOPMENT_SETTINGS");
-            settings.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(settings);
-            finish();
-        }
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        mElite = Util.elitePresent(this, false, 0);
-        menu.add(Menu.NONE, MenuId.ELITE,
-                MenuId.ELITE, mElite?R.string.menu_extras:R.string.menu_get_elite)
-                .setIcon(R.drawable.ic_action_extras)
-                .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS | MenuItem.SHOW_AS_ACTION_WITH_TEXT);
+        MenuItem item;
+        if (Util.elitePresent(this, false, 0)) {
+            item = menu.add(Menu.NONE, MENU_ELITE,
+                    MENU_ELITE, R.string.menu_extras);
+            item.setIcon(R.drawable.ic_menu_star);
+            MenuCompat.setShowAsAction(item, MenuItem.SHOW_AS_ACTION_IF_ROOM);
+        } else {
+            item = menu.add(Menu.NONE, MENU_GET_ELITE,
+                    MENU_GET_ELITE, R.string.pref_get_elite_title);
+            item.setIcon(R.drawable.ic_menu_star);
+            MenuCompat.setShowAsAction(item, MenuItem.SHOW_AS_ACTION_IF_ROOM);
+        }
 
-        menu.add(Menu.NONE, MenuId.PREFERENCES,
-                MenuId.PREFERENCES, R.string.menu_preferences)
-                .setIcon(R.drawable.ic_action_settings)
-                .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
+        if (mLoggingEnabled) {
+            item = menu.add(Menu.NONE, MENU_CLEAR_LOG,
+                    MENU_CLEAR_LOG, R.string.menu_clear_log);
+            item.setIcon(R.drawable.ic_menu_clear_log);
+            MenuCompat.setShowAsAction(item, MenuItem.SHOW_AS_ACTION_IF_ROOM);
+        }
+
+        item = menu.add(Menu.NONE, MENU_PREFERENCES,
+                MENU_PREFERENCES, R.string.menu_preferences);
+        item.setIcon(R.drawable.ic_menu_preferences);
+        MenuCompat.setShowAsAction(item, MenuItem.SHOW_AS_ACTION_IF_ROOM);
 
         return true;
     }
@@ -141,18 +137,21 @@ public class HomeActivity extends SherlockFragmentActivity implements DialogInte
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
-        case MenuId.ELITE:
+        case MENU_ELITE:
             Intent eliteIntent = new Intent();
-            if (mElite) {
-                eliteIntent.setComponent(new ComponentName("com.noshufou.android.su.elite",
-                        "com.noshufou.android.su.elite.FeaturedAppsActivity"));
-            } else {
-                eliteIntent = new Intent(Intent.ACTION_VIEW);
-                eliteIntent.setData(Uri.parse("market://details?id=com.noshufou.android.su.elite"));
-            }
+            eliteIntent.setComponent(new ComponentName("com.noshufou.android.su.elite",
+                    "com.noshufou.android.su.elite.FeaturedAppsActivity"));
             startActivity(eliteIntent);
             break;
-        case MenuId.PREFERENCES:
+        case MENU_GET_ELITE:
+            Intent mktIntent = new Intent(Intent.ACTION_VIEW);
+            mktIntent.setData(Uri.parse("market://details?id=com.noshufou.android.su.elite"));
+            startActivity(mktIntent);
+            break;
+        case MENU_CLEAR_LOG:
+            getContentResolver().delete(Logs.CONTENT_URI, null, null);
+            break;
+        case MENU_PREFERENCES:
             Util.launchPreferences(this);
             break;
         }
@@ -198,20 +197,6 @@ public class HomeActivity extends SherlockFragmentActivity implements DialogInte
             transaction.replace(R.id.fragment_container, logFragment);
             transaction.commit();
         }
-    }
-    
-    public void showInfo() {
-        if (mDualPane) {
-            Fragment infoFragment = Fragment.instantiate(this, InfoFragment.class.getName());
-            FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-            transaction.setTransition(FragmentTransaction.TRANSIT_FRAGMENT_FADE);
-            transaction.replace(R.id.fragment_container, infoFragment);
-            transaction.commit();
-        }
-    }
-
-    public boolean isDualPane() {
-        return mDualPane;
     }
 
     public static class PagerAdapter extends FragmentPagerAdapter
@@ -299,26 +284,18 @@ public class HomeActivity extends SherlockFragmentActivity implements DialogInte
 
     }
 
-    private class EliteCheck extends AsyncTask<Void, Void, Drawable> {
+    private class EliteCheck extends AsyncTask<Void, Void, Boolean> {
 
         @Override
-        protected Drawable doInBackground(Void... params) {
-            if (Util.elitePresent(HomeActivity.this, false, 0)) {
-                return new TransitionDrawable(
-                        new Drawable[] { getResources().getDrawable(R.drawable.ic_logo),
-                                getResources().getDrawable(R.drawable.ic_logo_elite) });
-            } else {
-                return getResources().getDrawable(R.drawable.ic_logo);
-            }
+        protected Boolean doInBackground(Void... params) {
+            return Util.elitePresent(HomeActivity.this, false, 0);
         }
 
         @Override
-        protected void onPostExecute(Drawable result) {
-            getSupportActionBar().setLogo(result);
-            if (result instanceof TransitionDrawable) {
-                ((TransitionDrawable)result).startTransition(1000);
+        protected void onPostExecute(Boolean result) {
+            if (result) {
+                mTitleLogo.startTransition(1000);
             }
         }
     }
-
 }

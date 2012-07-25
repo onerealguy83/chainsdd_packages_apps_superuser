@@ -17,22 +17,23 @@
 -->
 
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="horizontal"
-    android:gravity="center"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content" >
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:layout_width="wrap_content"
+    android:layout_height="fill_parent" >
 
-    <NumberPicker
-        android:id="@+id/number_picker"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:focusable="true"
-        android:focusableInTouchMode="true" />
-    
     <TextView
-        android:id="@+id/unit"
-        android:layout_width="wrap_content"
+        android:gravity="center_horizontal"
+        android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:visibility="gone" />
+        android:text="@string/pref_log_entries_to_save"
+        android:textSize="12sp"
+        android:padding="1dip" />
+
+    <view class="com.noshufou.android.su.widget.NumberPickerDialog$NonWrapNumberPicker"
+        android:id="@+id/number_picker"
+        android:layout_centerInParent="true"
+        android:layout_width="100dip"
+        android:layout_height="fill_parent" />
 
 </LinearLayout>

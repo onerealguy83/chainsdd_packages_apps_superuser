@@ -15,7 +15,18 @@
  ******************************************************************************/
 package com.noshufou.android.su.preferences;
 
-import android.annotation.TargetApi;
+import com.noshufou.android.su.PinActivity;
+import com.noshufou.android.su.R;
+import com.noshufou.android.su.TagWriterActivity;
+import com.noshufou.android.su.UpdaterActivity;
+import com.noshufou.android.su.UpdaterFragment;
+import com.noshufou.android.su.provider.PermissionsProvider.Logs;
+import com.noshufou.android.su.service.ResultService;
+import com.noshufou.android.su.util.BackupUtil;
+import com.noshufou.android.su.util.Util;
+import com.noshufou.android.su.widget.ChangeLog;
+import com.noshufou.android.su.widget.NumberPickerDialog;
+
 import android.app.AlertDialog;
 import android.app.NotificationManager;
 import android.content.Context;
@@ -23,6 +34,9 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.NameNotFoundException;
 import android.net.Uri;
 import android.nfc.NfcAdapter;
 import android.os.AsyncTask;
@@ -31,29 +45,20 @@ import android.os.Bundle;
 import android.preference.CheckBoxPreference;
 import android.preference.Preference;
 import android.preference.Preference.OnPreferenceChangeListener;
+import android.preference.PreferenceActivity;
 import android.preference.PreferenceCategory;
 import android.preference.PreferenceScreen;
 import android.util.Log;
+import android.view.MenuItem;
+import android.view.View;
+import android.view.View.OnClickListener;
+import android.widget.ImageButton;
+import android.widget.ProgressBar;
+import android.widget.TextView;
 import android.widget.Toast;
 
-import com.actionbarsherlock.app.SherlockPreferenceActivity;
-import com.actionbarsherlock.view.MenuItem;
-import com.actionbarsherlock.view.Window;
-import com.noshufou.android.su.PinActivity;
-import com.noshufou.android.su.R;
-import com.noshufou.android.su.TagWriterActivity;
-import com.noshufou.android.su.UpdaterActivity;
-import com.noshufou.android.su.provider.PermissionsProvider.Logs;
-import com.noshufou.android.su.service.ResultService;
-import com.noshufou.android.su.service.UpdaterService;
-import com.noshufou.android.su.util.BackupUtil;
-import com.noshufou.android.su.util.Util;
-import com.noshufou.android.su.util.Util.VersionInfo;
-import com.noshufou.android.su.widget.AncientNumberPickerDialog;
-import com.noshufou.android.su.widget.ChangeLog;
-
-public class PreferencesActivity extends SherlockPreferenceActivity
-implements OnSharedPreferenceChangeListener, OnPreferenceChangeListener {
+public class PreferencesActivity extends PreferenceActivity implements OnClickListener,
+        OnSharedPreferenceChangeListener, OnPreferenceChangeListener {
     private static final String TAG = "Su.PreferencesActivity";
 
     private static final int REQUEST_ENABLE_PIN = 1;
@@ -67,6 +72,9 @@ implements OnSharedPreferenceChangeListener, OnPreferenceChangeListener {
     private Preference mLogLimit = null;
     private Preference mClearLog = null;
     private Preference mToastLocation = null;
+    private Preference mApkVersion = null;
+    private Preference mBinVersion = null;
+    private CheckBoxPreference mOutdatedNotification = null;
     private Preference mTimeoutPreference = null;
     private CheckBoxPreference mPin = null;
     private CheckBoxPreference mGhostMode = null;
@@ -75,19 +83,18 @@ implements OnSharedPreferenceChangeListener, OnPreferenceChangeListener {
     private Context mContext;
     private boolean mElite = false;
 
-    @TargetApi(10)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        requestWindowFeature(Window.FEATURE_INDETERMINATE_PROGRESS);
-
         super.onCreate(savedInstanceState);
-        setSupportProgressBarIndeterminateVisibility(false);
-
         setContentView(R.layout.activity_preferences);
 
         addPreferencesFromResource(R.xml.preferences);
 
         mContext = getApplicationContext();
+
+        // Set up the titlebar
+        ((TextView)findViewById(R.id.title_text)).setText(R.string.pref_title);
+        ((ImageButton)findViewById(R.id.home_button)).setOnClickListener(this);
 
         PreferenceScreen prefScreen = getPreferenceScreen();
         mPrefs = prefScreen.getSharedPreferences();
@@ -96,12 +103,13 @@ implements OnSharedPreferenceChangeListener, OnPreferenceChangeListener {
         if (!mElite) {
             Log.i(TAG, "Elite not found, removing Elite preferences");
             for (String s : Preferences.ELITE_PREFS) {
-                Preference pref = findPreference(s);
-                if (pref != null) {
-                    pref.setEnabled(false);
-                    pref.setSummary(R.string.pref_elite_only);
+                String[] bits = s.split(":");
+                if (bits[1].equals("all")) {
+                    prefScreen.removePreference(findPreference(bits[0]));
+                } else {
+                    ((PreferenceCategory)findPreference(bits[0]))
+                            .removePreference(findPreference(bits[1]));
                 }
-
             }
         } else {
             mLogLimit = prefScreen.findPreference(Preferences.LOG_ENTRY_LIMIT);
@@ -127,9 +135,17 @@ implements OnSharedPreferenceChangeListener, OnPreferenceChangeListener {
                     prefScreen.removePreference(findPreference(Preferences.CATEGORY_NFC));
                 }
             }
+
+            ((PreferenceCategory)findPreference(Preferences.CATEGORY_INFO))
+                    .removePreference(findPreference(Preferences.GET_ELITE));
         }
-        
+
         mClearLog = prefScreen.findPreference(Preferences.CLEAR_LOG);
+        mApkVersion = prefScreen.findPreference(Preferences.VERSION);
+        mBinVersion = prefScreen.findPreference(Preferences.BIN_VERSION);
+        mOutdatedNotification = (CheckBoxPreference) 
+                prefScreen.findPreference(Preferences.OUTDATED_NOTIFICATION);
+        mOutdatedNotification.setOnPreferenceChangeListener(this);
     }
 
     @Override
@@ -137,6 +153,7 @@ implements OnSharedPreferenceChangeListener, OnPreferenceChangeListener {
         super.onResume();
         getPreferenceScreen().getSharedPreferences()
                 .registerOnSharedPreferenceChangeListener(this);
+        new UpdateVersions().execute();
     }
 
     @Override
@@ -144,6 +161,15 @@ implements OnSharedPreferenceChangeListener, OnPreferenceChangeListener {
         super.onPause();
         getPreferenceScreen().getSharedPreferences()
                 .unregisterOnSharedPreferenceChangeListener(this);
+    }
+
+    @Override
+    public void onClick(View v) {
+        switch(v.getId()) {
+        case R.id.home_button:
+            goHome();
+            break;
+        }
     }
 
     @Override
@@ -166,14 +192,18 @@ implements OnSharedPreferenceChangeListener, OnPreferenceChangeListener {
             Preference preference) {
         String pref = preference.getKey();
         if (pref.equals(Preferences.LOG_ENTRY_LIMIT)) {
-            new AncientNumberPickerDialog(this,
+            new NumberPickerDialog(this,
                     mLogEntriesSet,
                     mPrefs.getInt(Preferences.LOG_ENTRY_LIMIT, 200),
                     0,
                     500,
-                    R.string.pref_log_entry_limit_title, 0).show();
+                    R.string.pref_log_entry_limit_title).show();
         } else if (pref.equals(Preferences.CLEAR_LOG)) {
             new ClearLog().execute();
+        } else if (pref.equals(Preferences.BIN_VERSION)) {
+            final Intent intent = new Intent(this, UpdaterActivity.class);
+            startActivity(intent);
+            return true;
         } else if (pref.equals(Preferences.PIN)) {
             Intent intent = new Intent(this, PinActivity.class);
             if (preferenceScreen.getSharedPreferences().getBoolean(Preferences.PIN, false)) {
@@ -195,12 +225,11 @@ implements OnSharedPreferenceChangeListener, OnPreferenceChangeListener {
             intent.putExtra(PinActivity.EXTRA_MODE, PinActivity.MODE_SECRET_CODE);
             startActivityForResult(intent, REQUEST_SECRET_CODE);
         } else if (pref.equals(Preferences.TIMEOUT)) {
-            new AncientNumberPickerDialog(this,
+            new NumberPickerDialog(this,
                     mTimeoutSet,
                     mPrefs.getInt(Preferences.TIMEOUT, 0),
                     0, 600,
-                    R.string.pref_timeout_title,
-                    R.string.pref_timeout_unit).show();
+                    R.string.pref_timeout_title).show();
         } else if (pref.equals(Preferences.USE_ALLOW_TAG) ||
                 pref.equals(Preferences.WRITE_ALLOW_TAG)) {
             if (!preferenceScreen.getSharedPreferences()
@@ -212,6 +241,13 @@ implements OnSharedPreferenceChangeListener, OnPreferenceChangeListener {
                 startActivityForResult(intent, REQUEST_WRITE_TAG);
                 return true;
             }
+        } else if (pref.equals(Preferences.CHANGELOG)) {
+            ChangeLog cl = new ChangeLog(this);
+            cl.getFullLogDialog().show();
+        } else if (pref.equals(Preferences.GET_ELITE)) {
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setData(Uri.parse("market://details?id=com.noshufou.android.su.elite"));
+            startActivity(intent);
         } else if (pref.equals(Preferences.BACKUP)) {
             new BackupApps().execute();
         } else if (pref.equals(Preferences.RESTORE)) {
@@ -261,17 +297,7 @@ implements OnSharedPreferenceChangeListener, OnPreferenceChangeListener {
         } else if (pref.equals(Preferences.OUTDATED_NOTIFICATION) && !((Boolean) newValue)) {
             Log.d(TAG, "Cancel the notification");
             ((NotificationManager)getSystemService(Context.NOTIFICATION_SERVICE))
-                    .cancel(UpdaterService.NOTIFICATION_ID);
-        } else if (pref.equals(Preferences.TIMEOUT)) {
-            int value = Integer.valueOf((String) newValue);
-            mPrefs.edit().putInt(Preferences.TIMEOUT, value).commit();
-            mTimeoutPreference.setSummary(getString(R.string.pref_timeout_summary, value));
-            return false;
-        } else if (pref.equals(Preferences.LOG_ENTRY_LIMIT)) {
-            int value = Integer.valueOf((String) newValue);
-            mPrefs.edit().putInt(Preferences.LOG_ENTRY_LIMIT, Integer.valueOf((String) newValue)).commit();
-            mLogLimit.setSummary(getString(R.string.pref_log_entry_limit_summary, value));
-            return false;
+                    .cancel(UpdaterFragment.NOTIFICATION_ID);
         }
         return true;
     }
@@ -279,17 +305,14 @@ implements OnSharedPreferenceChangeListener, OnPreferenceChangeListener {
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences,
             String key) {
-        Log.d(TAG, "Preference changed - " + key);
         if (key.equals(Preferences.NOTIFICATION_TYPE) && mToastLocation != null) {
             mToastLocation.setEnabled(sharedPreferences
                     .getString(Preferences.NOTIFICATION_TYPE, "toast").equals("toast"));
-        } else if (key.equals(Preferences.AUTOMATIC_ACTION)) {
-            Util.writeDetaultStoreFile(this, sharedPreferences.getString(key, "prompt"));
         }
     }
 
-    AncientNumberPickerDialog.OnNumberSetListener mLogEntriesSet =
-        new AncientNumberPickerDialog.OnNumberSetListener() {
+    NumberPickerDialog.OnNumberSetListener mLogEntriesSet =
+        new NumberPickerDialog.OnNumberSetListener() {
 
         @Override
         public void onNumberSet(int number) {
@@ -301,8 +324,8 @@ implements OnSharedPreferenceChangeListener, OnPreferenceChangeListener {
         }
     };
 
-    AncientNumberPickerDialog.OnNumberSetListener mTimeoutSet =
-        new AncientNumberPickerDialog.OnNumberSetListener() {
+    NumberPickerDialog.OnNumberSetListener mTimeoutSet =
+        new NumberPickerDialog.OnNumberSetListener() {
 
         @Override
         public void onNumberSet(int number) {
@@ -376,11 +399,38 @@ implements OnSharedPreferenceChangeListener, OnPreferenceChangeListener {
         
     }
 
+    private class UpdateVersions extends AsyncTask<Void, Integer, Integer> {
+        private String apkVersion;
+        private int apkVersionCode;
+        private String binVersion;
+
+        @Override
+        protected Integer doInBackground(Void... params) {
+            try {
+                PackageInfo pInfo = getPackageManager()
+                .getPackageInfo(getPackageName(), PackageManager.GET_META_DATA);
+                apkVersion = pInfo.versionName;
+                apkVersionCode = pInfo.versionCode;
+            } catch (NameNotFoundException e) {
+                Log.e(TAG, "Superuser is not installed?", e);
+            }
+
+            binVersion = Util.getSuVersion();
+            return 0;
+        }
+
+        @Override
+        protected void onPostExecute(Integer result) {
+            mApkVersion.setTitle(getString(R.string.pref_version_title, apkVersion, apkVersionCode));
+            mBinVersion.setTitle(getString(R.string.pref_bin_version_title, binVersion));
+        }
+    }
+    
     private class BackupApps extends AsyncTask<Void, Void, Boolean> {
 
         @Override
         protected void onPreExecute() {
-            setSupportProgressBarIndeterminateVisibility(true);
+            ((ProgressBar)findViewById(R.id.title_refresh_progress)).setVisibility(View.VISIBLE);
         }
 
         @Override
@@ -390,7 +440,7 @@ implements OnSharedPreferenceChangeListener, OnPreferenceChangeListener {
 
         @Override
         protected void onPostExecute(Boolean result) {
-            setSupportProgressBarIndeterminateVisibility(false);
+            ((ProgressBar)findViewById(R.id.title_refresh_progress)).setVisibility(View.GONE);
             if (result) {
                 Toast.makeText(getApplicationContext(),
                         getString(R.string.backup_complete), Toast.LENGTH_SHORT).show();
@@ -402,7 +452,7 @@ implements OnSharedPreferenceChangeListener, OnPreferenceChangeListener {
 
         @Override
         protected void onPreExecute() {
-            setSupportProgressBarIndeterminateVisibility(true);
+            ((ProgressBar)findViewById(R.id.title_refresh_progress)).setVisibility(View.VISIBLE);
         }
 
         @Override
@@ -412,7 +462,7 @@ implements OnSharedPreferenceChangeListener, OnPreferenceChangeListener {
 
         @Override
         protected void onPostExecute(Integer result) {
-            setSupportProgressBarIndeterminateVisibility(false);
+            ((ProgressBar)findViewById(R.id.title_refresh_progress)).setVisibility(View.GONE);
             if (result > -1) {
                 String message = result > 0 ?
                         getResources().getQuantityString(R.plurals.restore_complete, result, result):
@@ -420,14 +470,11 @@ implements OnSharedPreferenceChangeListener, OnPreferenceChangeListener {
                 Toast.makeText(getApplicationContext(),
                         message,
                         Toast.LENGTH_SHORT).show();
-//                Intent intent = getIntent();
-//                finish();
-//                startActivity(intent);
-//                ((BaseAdapter)getPreferenceScreen().getRootAdapter()).notifyDataSetChanged();
-                Log.d(TAG, "call onContentChanged()");
-                onContentChanged();
-                Log.d(TAG, "onContentChanged() returned");
+                Intent intent = getIntent();
+                finish();
+                startActivity(intent);
             }
         }
+        
     }
 }

@@ -14,37 +14,81 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 -->
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/home_root"
+    android:orientation="vertical"
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
-    android:orientation="vertical"
-    android:paddingLeft="@dimen/pref_side_padding"
-    android:paddingRight="@dimen/pref_side_padding"
-    android:gravity="center_horizontal" >
+    android:background="@android:color/white">
 
-    <ListView
-        android:id="@android:id/list"
-        android:layout_width="wrap_content"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:background="@color/console_background"
-        android:cacheColorHint="@color/console_background"
-        android:divider="@android:color/transparent"
-        android:listSelector="@android:color/transparent"
-        android:layout_marginTop="10dp"
-        android:padding="3dp"
-        android:transcriptMode="alwaysScroll" />
+    <LinearLayout style="@style/TitleBar">
+        <ImageButton style="@style/TitleBarAction"
+            android:id="@+id/home_button"
+            android:contentDescription="@string/description_home"
+            android:src="@drawable/ic_title_home" />
 
-    <Button
-        android:id="@+id/action_button"
-        android:layout_width="match_parent"
+        <ImageView style="@style/TitleBarSeparator" />
+        <TextView style="@style/TitleBarText" />
+        <ProgressBar style="@style/TitleBarProgressIndicator"
+            android:id="@+id/title_refresh_progress"
+            android:visibility="invisible" />
+    </LinearLayout>
+
+    <TextView android:id="@+id/status"
+        style="@android:style/TextAppearance.Large"
+        android:layout_width="fill_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:layout_marginBottom="10dp"
-        android:layout_marginLeft="40dp"
-        android:layout_marginRight="40dp"
-        android:enabled="false"
+        android:layout_below="@id/title_container"
+        android:layout_centerHorizontal="true"
+        android:gravity="center"
         android:text="@string/updater_working" />
 
-</LinearLayout>
+    <ListView android:id="@android:id/list"
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:layout_below="@id/title_container"
+        android:layout_above="@+id/button_bar"
+        android:layout_alignParentLeft="true"
+        android:layout_alignParentRight="true"
+        android:layout_marginTop="70dip"
+        android:layout_marginBottom="60dip"
+        android:layout_marginLeft="20dip"
+        android:layout_marginRight="20dip"
+        android:padding="3dp"
+        android:divider="@android:color/transparent"
+        android:listSelector="@android:color/transparent"
+        android:cacheColorHint="@color/console_background"
+        android:background="@color/console_background"
+        android:transcriptMode="alwaysScroll" />
+
+    <ProgressBar android:id="@+id/progress_bar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_above="@id/button_bar"
+        android:layout_marginRight="20dip"
+        android:layout_marginLeft="20dip"
+        android:layout_marginBottom="20dip"
+        android:max="14"
+        android:visibility="visible" />
+
+    <LinearLayout android:id="@id/button_bar"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_centerHorizontal="true"
+        android:orientation="horizontal"
+        android:paddingTop="5dip"
+        android:paddingLeft="4dip"
+        android:paddingRight="4dip"
+        android:paddingBottom="1dip"
+        android:background="@drawable/bottom_bar">
+        <Button android:id="@+id/action_button"
+            android:layout_width="0dip"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/updater_working"
+            android:enabled="false" />
+    </LinearLayout>
+
+</RelativeLayout>

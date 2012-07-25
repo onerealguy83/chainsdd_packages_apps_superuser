@@ -15,11 +15,12 @@
   limitations under the License.
 -->
 <resources>
+    <dimen name="title_height">45dp</dimen>
+    <dimen name="title_shadow">4dp</dimen>
     <dimen name="text_size_console">10sp</dimen>
-
+    <dimen name="text_size_medium">18sp</dimen>
+    
     <dimen name="page_margin">10dp</dimen>
-
-    <dimen name="action_bar_switch_padding">16dip</dimen>
 
     <!-- Dimensions for an app list item -->
     <dimen name="list_item_perferred_height">64dip</dimen>
@@ -29,8 +30,10 @@
     <dimen name="list_item_padding_left">4dip</dimen>
     <dimen name="list_item_icon_size">48dip</dimen>
     <dimen name="list_item_gap_between_image_and_text">8dip</dimen>
+    <dimen name="list_item_status_button_padding">14dip</dimen>
     <dimen name="list_item_header_padding_left">15dip</dimen>
-
+    <dimen name="list_item_header_height">24dip</dimen>
+    
     <!-- Dimensions for a log item -->
     <dimen name="log_item_perferred_height">30dip</dimen>
     <dimen name="log_item_padding_top">4dip</dimen>
@@ -39,10 +42,7 @@
     <dimen name="log_item_padding_left">100dip</dimen>
     <dimen name="log_item_gap_between_fields">5dip</dimen>
     <dimen name="log_item_header_padding_left">10dip</dimen>
-
+    
     <!--  Dimensions for PagerHeaders -->
     <dimen name="pager_header_height">32dp</dimen>
-
-    <dimen name="pref_side_padding">12dp</dimen>
-
 </resources>

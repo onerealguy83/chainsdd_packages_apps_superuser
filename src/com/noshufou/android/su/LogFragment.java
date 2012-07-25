@@ -1,5 +1,9 @@
 package com.noshufou.android.su;
 
+import com.noshufou.android.su.provider.PermissionsProvider.Logs;
+import com.noshufou.android.su.widget.LogAdapter;
+import com.noshufou.android.su.widget.PinnedHeaderListView;
+
 import android.database.Cursor;
 import android.os.Bundle;
 import android.support.v4.app.ListFragment;
@@ -10,56 +14,42 @@ import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.View.OnClickListener;
 import android.widget.ListView;
 import android.widget.TextView;
 
-import com.actionbarsherlock.app.SherlockListFragment;
-import com.actionbarsherlock.view.Menu;
-import com.actionbarsherlock.view.MenuInflater;
-import com.actionbarsherlock.view.MenuItem;
-import com.noshufou.android.su.provider.PermissionsProvider.Logs;
-import com.noshufou.android.su.util.Util.MenuId;
-import com.noshufou.android.su.widget.LogAdapter;
-import com.noshufou.android.su.widget.PinnedHeaderListView;
-
-public class LogFragment extends SherlockListFragment
-        implements LoaderManager.LoaderCallbacks<Cursor>, FragmentWithLog {
+public class LogFragment extends ListFragment
+        implements LoaderManager.LoaderCallbacks<Cursor>, FragmentWithLog, OnClickListener {
     private static final String TAG = "Su.LogFragment";
     
     private LogAdapter mAdapter = null;
     private TextView mLogCountTextView = null;
-    private boolean mDualPane;
 
     public static LogFragment newInstance() {
         return new LogFragment();
     }
     
     @Override
-    public void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        mDualPane = ((HomeActivity)getActivity()).isDualPane();
-        setHasOptionsMenu(true);
-    }
-
-    @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
             Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_log, container, false);
-
+        
         mLogCountTextView = (TextView) view.findViewById(R.id.log_count);
-
+        View clearLogButton = view.findViewById(R.id.clear_log_button);
+        if (clearLogButton != null) {
+            clearLogButton.setOnClickListener(this);
+        }
+        
         return view;
     }
 
     @Override
     public void onActivityCreated(Bundle savedInstanceState) {
         super.onActivityCreated(savedInstanceState);
-        Log.d(TAG, "onActivityCreated()");
 
-        if (mDualPane) {
-            Log.d(TAG, "is dual pane");
-            ListFragment appList = (ListFragment) getActivity().getSupportFragmentManager()
-                    .findFragmentById(R.id.app_list);
+        ListFragment appList = (ListFragment) getActivity().getSupportFragmentManager()
+                .findFragmentById(R.id.app_list);
+        if (appList != null) {
             appList.getListView().clearChoices();
             appList.getListView().invalidateViews();
         }
@@ -89,31 +79,11 @@ public class LogFragment extends SherlockListFragment
     }
 
     @Override
-    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
-        Log.d(TAG, "onCreateOptionsMenu()");
-        if (mDualPane) {
-            Log.d(TAG, "is dual pane");
-            menu.add(Menu.NONE, MenuId.INFO, MenuId.INFO,
-                    R.string.page_label_info)
-                    .setIcon(R.drawable.ic_action_info)
-                    .setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
-        }
-        menu.add(Menu.NONE, MenuId.CLEAR_LOG, MenuId.CLEAR_LOG, R.string.menu_clear_log)
-                .setIcon(R.drawable.ic_action_clear_log)
-                .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS | MenuItem.SHOW_AS_ACTION_WITH_TEXT);
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()) {
-            case MenuId.CLEAR_LOG:
-                getActivity().getContentResolver().delete(Logs.CONTENT_URI, null, null);
-                return true;
-            case MenuId.INFO:
-                ((HomeActivity)getActivity()).showInfo();
-                return true;
-            default:
-                return super.onOptionsItemSelected(item);
+    public void onClick(View view) {
+        switch (view.getId()) {
+        case R.id.clear_log_button:
+            clearLog();
+            break;
         }
     }
 

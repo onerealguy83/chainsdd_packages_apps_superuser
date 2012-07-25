@@ -1,6 +1,5 @@
 package com.noshufou.android.su.preferences;
 
-
 public class Preferences {
     
     public static final String PIN = "pref_pin";
@@ -33,8 +32,6 @@ public class Preferences {
     public static final String ADVANCED_PROMPT = "pref_advanced_prompt";
     public static final String CHANGELOG = "pref_changelog";
     public static final String GET_ELITE = "pref_get_elite";
-    public static final String TEMP_UNROOT = "pref_temp_unroot";
-    public static final String OTA_SURVIVE = "pref_ota_survive";
     
     public static final String CATEGORY_SECURITY = "pref_category_security";
     public static final String CATEGORY_APPLIST = "pref_category_applist";
@@ -43,28 +40,17 @@ public class Preferences {
     public static final String CATEGORY_NFC = "pref_category_nfc";
     public static final String CATEGORY_BACKUP_RESTORE = "pref_category_backup_restore";
     public static final String CATEGORY_INFO = "pref_category_info";
-
+    
     public static final String ELITE_PREFS[] = new String[] {
-        PIN,
-        CHANGE_PIN,
-        TIMEOUT,
-        GHOST_MODE,
-        SECRET_CODE,
-        LOG_ENTRY_LIMIT,
-        TOAST_LOCATION,
-        USE_ALLOW_TAG,
-        WRITE_ALLOW_TAG,
-        BACKUP,
-        RESTORE
+        CATEGORY_SECURITY + ":" + PIN,
+        CATEGORY_SECURITY + ":" + CHANGE_PIN,
+        CATEGORY_SECURITY + ":" + TIMEOUT,
+        CATEGORY_SECURITY + ":" + GHOST_MODE,
+        CATEGORY_SECURITY + ":" + SECRET_CODE,
+        CATEGORY_LOG + ":" + LOG_ENTRY_LIMIT ,
+        CATEGORY_NOTIFICATION + ":" + TOAST_LOCATION,
+        CATEGORY_NFC + ":all",
+        CATEGORY_BACKUP_RESTORE + ":all"
     };
-
-    public static final int REQUEST_ENABLE_PIN = 1;
-    public static final int REQUEST_DISABLE_PIN = 2;
-    public static final int REQUEST_CHANGE_PIN = 3;
-    public static final int REQUEST_WRITE_TAG = 4;
-    public static final int REQUEST_SECRET_CODE = 5;
-
-    public static final int DIALOG_TIMEOUT = 0;
-    public static final int DIALOG_LOG_LIMIT = 1;
 
 }

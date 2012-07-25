@@ -15,20 +15,29 @@
   limitations under the License.
 -->
 <resources>
-    <style name="Dialog" parent="android:style/Theme.Holo.Light.Dialog" />
+    <!-- Base application theme is the default theme -->
+    <style name="Theme" parent="android:Theme.Holo.Light" />
+
+    <style name="Theme.Superuser" parent="style/Theme">
+        <item name="android:windowBackground">@color/title_background</item>
+        <item name="android:actionBarStyle">@style/ActionBar.Superuser</item>
+    </style>
+    
+    <style name="Theme.Superuser.Preferences" parent="style/Theme.Superuser">
+        <item name="android:windowBackground">@android:color/white</item>
+    </style>
+    
+    <style name="ActionBar.Superuser" parent="android:style/Widget.Holo.ActionBar">
+        <item name="android:background">@color/title_background</item>
+        <item name="android:displayOptions">useLogo|showHome</item>
+    </style>
+    
+    <style name="Dialog" parent="android:style/Theme.Holo.Dialog" />
     
     <style name="TitleBar">
         <item name="android:id">@id/title_container</item>
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_height">0dp</item>
         <item name="android:visibility">gone</item>
-    </style>
-    
-    <style name="Panel" parent="@android:style/Theme.Holo.Panel" />
-
-    <style name="Theme.Superuser.Preferences" parent="Theme.Superuser">
-        <item name="android:windowBackground">@color/window_background</item>
-        <item name="actionBarStyle">@style/Widget.Superuser.ActionBar.Details</item>
-        <item name="android:actionBarStyle">@style/Widget.Superuser.ActionBar.Details</item>
     </style>
 </resources>

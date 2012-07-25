@@ -16,16 +16,13 @@
 package com.noshufou.android.su;
 
 import android.os.Bundle;
+import android.support.v4.app.FragmentActivity;
 
-import com.actionbarsherlock.app.SherlockFragmentActivity;
-import com.actionbarsherlock.view.Window;
-
-public class UpdaterActivity extends SherlockFragmentActivity {
-    private static final String TAG = "Su.UpdaterActivity";
+public class UpdaterActivity extends FragmentActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        requestWindowFeature(Window.FEATURE_PROGRESS);
+        // TODO Auto-generated method stub
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_updater);
     }

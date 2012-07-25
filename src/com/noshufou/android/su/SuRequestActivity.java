@@ -20,7 +20,6 @@ import com.noshufou.android.su.preferences.Preferences;
 import com.noshufou.android.su.provider.PermissionsProvider.Apps;
 import com.noshufou.android.su.util.Util;
 
-import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.PendingIntent;
 import android.content.ContentValues;
@@ -28,18 +27,13 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.IntentFilter.MalformedMimeTypeException;
 import android.content.SharedPreferences;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager.NameNotFoundException;
 import android.graphics.Color;
-import android.net.Credentials;
 import android.net.LocalSocket;
 import android.net.LocalSocketAddress;
 import android.nfc.NdefMessage;
 import android.nfc.NdefRecord;
 import android.nfc.NfcAdapter;
 import android.nfc.tech.Ndef;
-import android.os.Build.VERSION;
-import android.os.Build.VERSION_CODES;
 import android.os.Bundle;
 import android.os.Parcelable;
 import android.preference.PreferenceManager;
@@ -54,7 +48,6 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.ViewFlipper;
 
-import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 
@@ -67,7 +60,7 @@ public class SuRequestActivity extends Activity implements OnClickListener {
     private int mCallerUid = 0;
     private int mDesiredUid = 0;
     private String mDesiredCmd = "";
-    private boolean mFromSocket = false;
+    private int mSuVersionCode = 0;
     
     private boolean mUsePin = false;
     private int mAttempts = 3;
@@ -81,6 +74,7 @@ public class SuRequestActivity extends Activity implements OnClickListener {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        String socketPath;
         super.onCreate(savedInstanceState);
 
         if (this.getCallingPackage() != null) {
@@ -92,8 +86,11 @@ public class SuRequestActivity extends Activity implements OnClickListener {
         mPrefs = PreferenceManager.getDefaultSharedPreferences(this);
 
         Intent intent = this.getIntent();
-        String socketPath = intent.getStringExtra(SuRequestReceiver.EXTRA_SOCKET);
-        int suVersionCode = intent.getIntExtra(SuRequestReceiver.EXTRA_VERSION_CODE, 0);
+        mCallerUid = intent.getIntExtra(SuRequestReceiver.EXTRA_CALLERUID, 0);
+        mDesiredUid = intent.getIntExtra(SuRequestReceiver.EXTRA_UID, 0);
+        mDesiredCmd = intent.getStringExtra(SuRequestReceiver.EXTRA_CMD);
+        socketPath = intent.getStringExtra(SuRequestReceiver.EXTRA_SOCKET);
+        mSuVersionCode = intent.getIntExtra(SuRequestReceiver.EXTRA_VERSION_CODE, 0);
 
         mUsePin = mPrefs.getBoolean(Preferences.PIN, false);
         if (mUsePin) {
@@ -117,29 +114,11 @@ public class SuRequestActivity extends Activity implements OnClickListener {
             ((Button)findViewById(R.id.allow)).setOnClickListener(this);
             ((Button)findViewById(R.id.deny)).setOnClickListener(this);
         }
-
+        
         try {
-            if (socketPath != null) {
-                mSocket = new LocalSocket();
-                mSocket.connect(new LocalSocketAddress(socketPath,
-                        LocalSocketAddress.Namespace.FILESYSTEM));
-                Credentials creds= mSocket.getPeerCredentials();
-                ApplicationInfo appInfo;
-                try {
-                    appInfo = getPackageManager().getApplicationInfo(getPackageName(), 0);
-                } catch (NameNotFoundException e) {
-                    Log.e(TAG, "Divided by zero...");
-                    return;
-                }
-//                if ((creds.getUid() != appInfo.uid || creds.getGid() != appInfo.uid) &&
-//                        (creds.getUid() != 0 || creds.getGid() != 0)) {
-//                    throw new SecurityException("Potential forged socket, socket uid=" + creds.getUid() + ", gid=" + creds.getGid());
-//                }
-                readRequestDetails(suVersionCode, intent);
-            } else {
-                Log.w(TAG, "Recieved null socket path, aborting");
-                finish();
-            }
+            mSocket = new LocalSocket();
+            mSocket.connect(new LocalSocketAddress(socketPath,
+                    LocalSocketAddress.Namespace.FILESYSTEM));
         } catch (IOException e) {
             // If we can't connect to the socket, there's no point in
             // being here. Log it and quit
@@ -147,7 +126,7 @@ public class SuRequestActivity extends Activity implements OnClickListener {
             finish();
         }
 
-        if (suVersionCode < 10) {
+        if (mSuVersionCode < 10) {
             Util.showOutdatedNotification(this);
         }
 
@@ -181,12 +160,10 @@ public class SuRequestActivity extends Activity implements OnClickListener {
         }
     }
 
-    @TargetApi(10)
     @Override
     protected void onResume() {
         super.onResume();
-        if (mPrefs.getBoolean(Preferences.USE_ALLOW_TAG, false)
-                && VERSION.SDK_INT > VERSION_CODES.GINGERBREAD) {
+        if (mPrefs.getBoolean(Preferences.USE_ALLOW_TAG, false)) {
             mNfcAdapter = NfcAdapter.getDefaultAdapter(this);
             PendingIntent pendingIntent = PendingIntent.getActivity(
                     this, 0, new Intent(this, getClass()).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), 0);
@@ -205,7 +182,6 @@ public class SuRequestActivity extends Activity implements OnClickListener {
         }
     }
 
-    @TargetApi(10)
     @Override
     protected void onPause() {
         super.onPause();
@@ -269,54 +245,8 @@ public class SuRequestActivity extends Activity implements OnClickListener {
         }
     };
 
-    private void readRequestDetails(int suVersion, Intent intent) throws IOException {
-        if (suVersion > 15) {
-            mFromSocket = true;
-            DataInputStream is = new DataInputStream(mSocket.getInputStream());
-
-            int protocolVersion = is.readInt();
-            Log.d(TAG, "INT32:PROTO VERSION = " + protocolVersion);
-
-            int exeSizeMax = is.readInt();
-            Log.d(TAG, "UINT32:FIELD7MAX = " + exeSizeMax);
-            int cmdSizeMax = is.readInt();
-            Log.d(TAG, "UINT32:FIELD9MAX = " + cmdSizeMax);
-            mCallerUid = is.readInt();
-            Log.d(TAG, "UINT32:CALLER = " + mCallerUid);
-            mDesiredUid = is.readInt();
-            Log.d(TAG, "UINT32:TO = " + mDesiredUid);
-
-            int exeSize = is.readInt();
-            Log.d(TAG, "UINT32:EXESIZE = " + exeSize);
-            if (exeSize > exeSizeMax) {
-                throw new IOException("Incomming string bigger than allowed");
-            }
-            byte[] buf = new byte[exeSize];
-            is.read(buf);
-            String callerBin = new String(buf, 0, exeSize - 1);
-            Log.d(TAG, "STRING:EXE = " + callerBin);
-
-            int cmdSize = is.readInt();
-            Log.d(TAG, "UINT32:CMDSIZE = " + cmdSize);
-            if (cmdSize > cmdSizeMax) {
-                throw new IOException("Incomming string bigger than allowed");
-            }
-            buf = new byte[cmdSize];
-            is.read(buf);
-            mDesiredCmd = new String(buf, 0, cmdSize - 1);
-            Log.d(TAG, "STRING:CMD = " + mDesiredCmd);
-        } else {
-            mFromSocket = false;
-            mCallerUid = intent.getIntExtra(SuRequestReceiver.EXTRA_CALLERUID, 0);
-            mDesiredUid = intent.getIntExtra(SuRequestReceiver.EXTRA_UID, 0);
-            mDesiredCmd = intent.getStringExtra(SuRequestReceiver.EXTRA_CMD);
-        }
-
-    }
-
     private void sendResult(boolean allow, boolean remember) {
         String resultCode = allow ? "ALLOW" : "DENY";
-        resultCode = mFromSocket ? "socket:" + resultCode : resultCode;
 
         if (remember) {
             ContentValues values = new ContentValues();
@@ -352,7 +282,6 @@ public class SuRequestActivity extends Activity implements OnClickListener {
         finish();
     }
     
-    @TargetApi(9)
     @Override
     public void onNewIntent(Intent intent) {
         Parcelable[] rawMsgs = intent.getParcelableArrayExtra(NfcAdapter.EXTRA_NDEF_MESSAGES);
